@@ -1,0 +1,5 @@
+﻿CREATE TABLE [dbo].[DebuggerTable]
+(
+	[Id] INT NOT NULL PRIMARY KEY IDENTITY, 
+    [json] NVARCHAR(MAX) NULL
+)
