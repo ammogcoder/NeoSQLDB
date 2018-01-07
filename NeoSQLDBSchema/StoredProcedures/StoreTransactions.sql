@@ -9,6 +9,7 @@ BEGIN TRY
 	--drop table #transaction
 	select @success = 1
 
+	--insert transactions from json into temp table
 	SELECT *, -1 'txid_pk' into #transaction FROM OPENJSON(@json)
 	WITH (
 		txid varchar(64),
@@ -32,7 +33,7 @@ BEGIN TRY
 		claims nvarchar(max) AS JSON
 		)
 
-	--log the block
+	--log the block and transcations
 	insert into BlockLog 
 	select getdate(), blockid, txid from #transaction
 
@@ -48,13 +49,15 @@ BEGIN TRY
 			t2.Name = t1.[type]
 		where
 			t2.Id is null
-
+	
+	--temp table to get the inserted transcations PKs(Id)
 	declare @Temp table (
 		Id bigint,
 		TxId varchar(64)
 	)
+
 	--insert transaction into transaction table
-	--get the identity ids into @Temp table
+	--insert the identity ids into @Temp table
 	insert into [Transaction]
 	Output
 		inserted.Id,
@@ -88,8 +91,11 @@ BEGIN TRY
 	left join @Temp t2 on 
 	t1.txid = t2.TxId
 	
+	--get the time from the block
 	declare @time int;
 	select top 1 @time = [time] from #transaction
+
+	--insert vin into temp table from #transaction
 	--drop table #vin
 	SELECT 
 		f.txid 
@@ -105,6 +111,7 @@ BEGIN TRY
 				,vout int '$.vout'
 				) as result
 
+	--insert vout into temp table from #transaction
 	--drop table #vout
 	SELECT 
 		f.txid 
@@ -123,6 +130,7 @@ BEGIN TRY
 			value numeric(20,8) '$.value'
 				) as result
 
+	--insert scripts into temp table from #transaction
 	--drop table #script
 	SELECT 
 		f.txid 
@@ -137,6 +145,7 @@ BEGIN TRY
 				verification nvarchar(MAX)  '$.verification'
 				) as result
 
+	--insert attributes into temp table from #transaction
 	--drop table #attribute
 	SELECT 
 		f.txid 
@@ -151,6 +160,7 @@ BEGIN TRY
 				[data] nvarchar(MAX)  '$.data'
 				) as result
 
+	--insert assets into temp table from #transaction
 	--drop table #asset
 	SELECT 
 		f.txid 
@@ -173,6 +183,7 @@ BEGIN TRY
 				[name] nvarchar(max) '$.name' as JSON 
 				) as result
 
+	--insert claims into temp table from #transaction
 	--drop table #claim
 	SELECT 
 		f.txid 
@@ -188,14 +199,9 @@ BEGIN TRY
 				vout int  '$.vout'
 				) as result
 
-
-	
-	--SELECT @txid_pk = SCOPE_IDENTITY()
-	--select @txid = txid from #transaction
-	--select @time = [time] from #transaction
-
 	--check if asset needs to be inserted
 	if (select count(txid_pk) from #asset) > 0 begin
+		--insert asset into table
 		insert into Asset
 			select distinct
 				txid,
@@ -206,6 +212,7 @@ BEGIN TRY
 				[admin]
 			from #asset
 
+		--insert asset transaction/name into table
 		insert into AssetTranslation
 		SELECT 
 			asset.Id
@@ -225,7 +232,7 @@ BEGIN TRY
 	--insert vout
 	if (select count(txid_pk) from #vout) > 0 begin
 
-		--store address first (if first transaction) and 
+		--store addresses first if not available in Address table
 		INSERT INTO [Address] 
 			([Address], FirstTime, LastTime)
 		SELECT distinct
@@ -234,13 +241,14 @@ BEGIN TRY
 		LEFT JOIN [Address] a on a.[Address] =  v.[address]
 		WHERE a.[Address] is null --only insert if not in table yet
 		
+		--temp table for getting IDs from insert
 		declare @TempVout table (
 			TxId bigint,
 			AddressId bigint,
 			AssetId bigint,
 			[Value] numeric(20,8)
 		)
-
+		--insert into transaction output table
 		insert into [TransactionOutput]
 		Output
 			inserted.TxId,
@@ -270,7 +278,7 @@ BEGIN TRY
 			on
 				ad.[Address] = v.[address]
 
-			--update last time			
+			--update last time		
 			update t1
 			set t1.LastTime = @time
 			from @TempVout t2 inner join
@@ -285,7 +293,7 @@ BEGIN TRY
 							from @TempVout v group by AddressId, AssetId) as t2
 				on t2.AddressId = t1.AddressId and t2.AssetId = t1.AssetId
 
-			--insert all addresses that are not yet in AddressBalance
+			--insert all addresses that are not yet in AddressBalance (first transaction for this address)
 			insert into [AddressBalance]
 			select vout.AddressId,vout.AssetId,sum(vout.[Value])
 			from 
@@ -299,7 +307,7 @@ BEGIN TRY
 				ab.AddressId is null
 			group by vout.AddressId,vout.AssetId
 
-			--update AddressTransaction
+			--update AddressTransaction (no duplicate address/transaction combination is inserted)
 			insert into [AddressTransaction]
 			select distinct
 				v.AddressId,
@@ -317,12 +325,13 @@ BEGIN TRY
 
 	--insert vin
 	if (select count(txid_pk) from #vin) > 0 begin
-		--get txid_pk from v.txid to get respective vout
+		--get the respective VOUT primary key for this VIN and write into #vin temp table
 		update t1
 		set t1.vin_txid_pk = t2.Id
 		from #vin t1 inner join [Transaction] t2
 		on t2.TxId = t1.vin_txid
 
+		--temp table for getting IDs while insert
 		declare @TempVin table (
 			TxId bigint,
 			AddressId bigint,
@@ -330,7 +339,7 @@ BEGIN TRY
 			[Value] numeric(20,8)
 		)
 
-
+		--insert transaction inputs 
 		insert into [TransactionInput]
 		Output
 			inserted.TxId,
@@ -365,7 +374,7 @@ BEGIN TRY
 			on
 				ad.Id = vout.[AddressId]
 
-			--set link in vouts of this vins
+			--update the VOUT link (ToTxId) for new VINs 
 			update t1
 				set	t1.ToTxId = t2.txid_pk,
 					t1.ToTxIdHash = t2.txid
@@ -413,7 +422,7 @@ BEGIN TRY
 			from #claim t1
 			inner join [Transaction] t2
 			on t1.claim_txid  = t2.TxId
-
+		--insert claims
 		insert into [Claim]
 			select
 				vout,
@@ -424,6 +433,7 @@ BEGIN TRY
 	end
 	--check if script needs to be inserted
 	if (select count(txid_pk) from #script) > 0 begin
+		--insert transaction scripts
 		insert into [TransactionScript]
 			select 
 				invocation,
@@ -434,6 +444,7 @@ BEGIN TRY
 	end
 	--check if attributes needs to be inserted
 	if (select count(txid_pk) from #attribute) > 0 begin
+		--insert attributes
 		insert into [Attribute]
 			select 
 				usage,
@@ -446,6 +457,7 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
 	select @success = 0;
+	--on error insert into ErrorTable and return success = false
 	insert into ErrorTable
     SELECT ERROR_LINE() AS ErrorLine
      ,ERROR_MESSAGE() AS ErrorMessage

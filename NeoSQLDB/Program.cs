@@ -15,26 +15,42 @@ namespace NeoSQLDB
 {
     class Program
     {
+        /// <summary>
+        /// Timer for getting new blocks
+        /// </summary>
         private static System.Timers.Timer read = new System.Timers.Timer(TimeSpan.FromSeconds(15).TotalMilliseconds);
+        /// <summary>
+        /// BlockingCollection qeueu for blocks that needs to be synced.
+        /// </summary>
         private static BlockingCollection<int> queue = new BlockingCollection<int>();
+        /// <summary>
+        /// Application close variable
+        /// </summary>
         private static bool exit = false;
+        /// <summary>
+        /// Initialize node access layer
+        /// </summary>
         private static NodeLayer nodeLayer = new NodeLayer();
+        /// <summary>
+        /// Initialize business access layer
+        /// </summary>
         private static BusinessLayer businessLayer = new BusinessLayer();
 
+        /// <summary>
+        /// Main method for syncing blocks.
+        /// </summary>
+        /// <param name="args"></param>
         static void Main(string[] args)
         {
-           // JObject joe = nodeLayer.InvokeMethod("getblock", 1774137, 1);
-            //if (businessLayer.SyncBlock(joe,false))
-            // {
-            //    Console.WriteLine("te");
-            //}
             Console.ReadLine();
+
+            //Create ElapsedEventHandler for reading new blocks
             read.AutoReset = false;
             read.Elapsed += new ElapsedEventHandler(read_block);
             read.Enabled = true;
 
+            //Create task for syncing blocks
             var consumerWorker = Task.Factory.StartNew(() => RunConsumer());
-
 
             Console.WriteLine("Press \'exit\' to quit.");
             string t;
@@ -48,12 +64,16 @@ namespace NeoSQLDB
                 }
             }
         }
-
+        /// <summary>
+        /// Main method for getting new blocks from node
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private static void read_block(object sender, ElapsedEventArgs e)
         {
             try
             {
-                //do onlyif all blocks are processed
+                //do only if all blocks are processed
                 if (queue.Count == 0)
                 {
                     //Get max block from node
@@ -81,15 +101,20 @@ namespace NeoSQLDB
             }
             finally
             {
+                //Start timer again after adding all new blocks.
                 read.Start();
             }
         }
+        /// <summary>
+        /// Main method for adding new blocks to database
+        /// </summary>
         private static void RunConsumer()
         {
             try
             {
                 try
                 {
+                    // Runs automatically if a new block is added to the queue
                     foreach (var t in queue.GetConsumingEnumerable())
                     {
                         if (exit)
@@ -98,10 +123,12 @@ namespace NeoSQLDB
                         }
 
                         JObject joe = null;
+                        //get the new block
                         while (joe == null)
                         {
                             joe = nodeLayer.InvokeMethod("getblock", t, 1);
                         }
+                        //write block to database
                         if (businessLayer.SyncBlock(joe, false))
                         {
                             Console.WriteLine("Synced:{0} ", t);

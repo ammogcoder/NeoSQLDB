@@ -8,6 +8,7 @@ BEGIN TRY
 	--drop table #transaction
 	select @success = 1
 
+	--Store block json to temp table
 	SELECT *, -1 'id_pk' into #block FROM OPENJSON(@json)
 	WITH (
 		[hash] varchar(64),
@@ -25,10 +26,12 @@ BEGIN TRY
 		net_fee numeric(20,8),
 		script nvarchar(max) AS JSON
 		)
+	--temp table to get the PK(id) and hash from the inserted block
 	declare @Temp table (
 		Id bigint,
 		[Hash] varchar(64)
 	)
+	--insert new block
 	insert into [Block]
 	Output
 		inserted.Id,
@@ -50,15 +53,7 @@ BEGIN TRY
 		net_fee
 	from #block
 
-	--update #transaction table with the identity ids from @Temp
-	/*update 
-		#block
-	set
-		id_pk = t1.Id
-	from @Temp t1 left join
-	#block t2 on
-	t1.[Hash] = t2.[Hash]*/
-
+	--update #block table with the identity ids from @Temp based on the hash
 	update t1
 	set
 		t1.id_pk = t2.Id
@@ -66,6 +61,7 @@ BEGIN TRY
 	@Temp t2 on t1.[Hash] = t2.[Hash]
 
 	--drop table #script
+	--insert block script from json into temp table
 	SELECT 
 		result.invocation
 		,result.verification
@@ -80,6 +76,7 @@ BEGIN TRY
 
 	--check if script needs to be inserted
 	if (select count(id_pk) from #script) > 0 begin
+		--insert block script
 		insert into [BlockScript]
 			select 
 				invocation,
@@ -89,7 +86,7 @@ BEGIN TRY
 				#script
 	end
 
-	--update NextBlockHash
+	--update NextBlockHash from previous block
 	update t1
 	set t1.NextBlockHash = t2.[hash]
 	from #block t2 inner join 	[Block] t1 
@@ -99,6 +96,7 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
 	select @success = 0;
+	--on error insert into ErrorTable and return success = false
 	insert into ErrorTable
     SELECT ERROR_LINE() AS ErrorLine
      ,ERROR_MESSAGE() AS ErrorMessage

@@ -11,17 +11,14 @@ namespace DAL
 {
     public class DatabaseLayer
     {
+        /// <summary>
+        /// Write all transactions from one block to database
+        /// </summary>
+        /// <param name="Transaction">one or more transactions json from one block</param>
+        /// <param name="debug">if debug is true, the json string will be written to DebuggerTable</param>
+        /// <returns>bool success</returns>
         public bool StoreTransactionsDB(JToken Transaction, bool debug)
         {
-            //Store seperate (all Information available in Transaction):
-            //Transaction
-            //TransactionInput
-            //TransactionOutput
-            //Script
-            //Claim
-            //Attribute
-            //Asset
-            //var json = JsonConvert.SerializeObject(Transaction);
             var sp = "StoreTransactions";
             if(debug)
             {
@@ -62,13 +59,15 @@ namespace DAL
             }
             return success;
         }
-
+        /// <summary>
+        /// Get max block index currently stored in database
+        /// </summary>
+        /// <returns>int max block height</returns>
         public int GetMaxBlockDB()
         {
             var maxblock = 0;
             try
             {
-                //select max([Index]) from Block
                 using (SqlConnection con = new SqlConnection("Integrated Security=SSPI;Initial Catalog=NEO_MainNet;Data Source=.;"))
                 {
                     using (SqlCommand cmd = new SqlCommand("select max([Index]) from Block", con))
@@ -93,6 +92,12 @@ namespace DAL
             return maxblock;
         }
 
+        /// <summary>
+        /// Store one block in database
+        /// </summary>
+        /// <param name="Block">block json</param>
+        /// <param name="debug">if debug is true, the json string will be written to DebuggerTabl</param>
+        /// <returns>bool success</returns>
         public bool StoreBlock(JToken Block, bool debug)
         {
             string json = JsonConvert.SerializeObject(Block);
