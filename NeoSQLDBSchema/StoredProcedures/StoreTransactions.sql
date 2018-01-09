@@ -39,7 +39,7 @@ BEGIN TRY
 
 	--insert transaction type if not exist
 	insert into TransactionType
-		select 
+		select distinct
 			[type]
 		from
 			#transaction t1

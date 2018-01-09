@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using DAL;
+using System.Globalization;
 
 namespace BLL
 {
@@ -136,18 +137,28 @@ namespace BLL
                 //for invocation transaction
                 transactions[j]["gas"] = transactions[j]["gas"];
 
-                transactions[j]["sys_fee"] = Decimal.Parse(transactions[j]["sys_fee"].ToString(), System.Globalization.CultureInfo.GetCultureInfo("en-US").NumberFormat);
-                transactions[j]["net_fee"] = Decimal.Parse(transactions[j]["net_fee"].ToString(), System.Globalization.CultureInfo.GetCultureInfo("en-US").NumberFormat);
+                //transactions[j]["sys_fee"] = Decimal.Parse(transactions[j]["sys_fee"].ToString(), System.Globalization.CultureInfo.GetCultureInfo("en-US").NumberFormat);
+                //transactions[j]["net_fee"] = Decimal.Parse(transactions[j]["net_fee"].ToString(), System.Globalization.CultureInfo.GetCultureInfo("en-US").NumberFormat);
 
-                sys_fee_total += Decimal.Parse(transactions[j]["sys_fee"].ToString(), System.Globalization.CultureInfo.GetCultureInfo("en-US").NumberFormat);
-                net_fee_total += Decimal.Parse(transactions[j]["net_fee"].ToString(), System.Globalization.CultureInfo.GetCultureInfo("en-US").NumberFormat);
+                decimal value_net;
+                if (Decimal.TryParse(transactions[j]["net_fee"].ToString(), NumberStyles.Any, System.Globalization.CultureInfo.GetCultureInfo("en-US").NumberFormat, out value_net))
+                {
+                    net_fee_total += value_net;
+                }
+                decimal value_sys;
+                if (Decimal.TryParse(transactions[j]["sys_fee"].ToString(), NumberStyles.Any, System.Globalization.CultureInfo.GetCultureInfo("en-US").NumberFormat, out value_sys))
+                {
+                    sys_fee_total += value_sys;
+                }
+                transactions[j]["sys_fee"] = value_sys;
+                transactions[j]["net_fee"] = value_net;
 
                 transactions[j]["script"] = transactions[j]["script"];
 
                 //go through all vout and convert the value
                 for (int i = 0; i < vout.Count(); i++)
                 {
-                    vout[i]["value"] = Decimal.Parse(vout[i]["value"].ToString(), System.Globalization.CultureInfo.GetCultureInfo("en-US").NumberFormat);
+                    vout[i]["value"] = Decimal.Parse(vout[i]["value"].ToString(), CultureInfo.GetCultureInfo("en-US").NumberFormat);
                     i++;
                 }
                 transactions[j]["vout"] = vout;
@@ -156,13 +167,13 @@ namespace BLL
                 transactions[j]["asset"] = transactions[j]["asset"];
                 if (transactions[j]["asset"].HasValues)
                 {
-                    transactions[j]["asset"]["amount"] = Decimal.Parse(transactions[j]["asset"]["amount"].ToString(), System.Globalization.CultureInfo.GetCultureInfo("en-US").NumberFormat);
+                    transactions[j]["asset"]["amount"] = Decimal.Parse(transactions[j]["asset"]["amount"].ToString(), CultureInfo.GetCultureInfo("en-US").NumberFormat);
                 }
                 //"gas" needs to be converted to dec
                 transactions[j]["gas"] = transactions[j]["gas"];
                 if (transactions[j]["gas"].Type != JTokenType.Null)
                 {
-                    transactions[j]["gas"] = Decimal.Parse(transactions[j]["gas"].ToString(), System.Globalization.CultureInfo.GetCultureInfo("en-US").NumberFormat);
+                    transactions[j]["gas"] = Decimal.Parse(transactions[j]["gas"].ToString(), CultureInfo.GetCultureInfo("en-US").NumberFormat);
                 }
             }
             //store transactions in database
