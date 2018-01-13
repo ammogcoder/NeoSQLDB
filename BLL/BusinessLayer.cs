@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using DAL;
 using System.Globalization;
@@ -21,21 +17,21 @@ namespace BLL
         /// Get max block from database
         /// </summary>
         /// <returns>int</returns>
-        public int GetMaxBlockDB()
+        public int GetMaxBlockDB(string Database)
         {
-            return databaseLayer.GetMaxBlockDB();
+            return databaseLayer.GetMaxBlockDB(Database);
         }
         /// <summary>
         /// Test
         /// </summary>
         /// <param name="data">block json from node</param>
         /// <returns></returns>
-        public bool SyncBlockTest(JObject data)
+        public bool SyncBlockTest(JObject data, String Database)
         {
             var block = data["result"];
 
             //first store block transaction
-            Tuple<bool, Decimal, Decimal> result = SyncBlockTransactions(block, true);
+            Tuple<bool, Decimal, Decimal> result = SyncBlockTransactions(block, Database, true);
 
             return true;
         }
@@ -45,7 +41,7 @@ namespace BLL
         /// <param name="data">block json from node</param>
         /// <param name="debug">bool</param>
         /// <returns>bool success</returns>
-        public bool SyncBlock(JObject data, bool debug)
+        public bool SyncBlock(JObject data, String Database, bool debug)
         {
             try
             {
@@ -53,7 +49,7 @@ namespace BLL
                 var success = true;
 
                 //first store block transaction
-                Tuple<bool, Decimal, Decimal> result = SyncBlockTransactions(block, debug);
+                Tuple<bool, Decimal, Decimal> result = SyncBlockTransactions(block, Database, debug);
                 //if txs insertion successfull
                 if (result.Item1)
                 {
@@ -74,7 +70,7 @@ namespace BLL
                     }
 
                     //Store block in database
-                    if (databaseLayer.StoreBlock(block, debug))
+                    if (databaseLayer.StoreBlock(block, Database, debug))
                     {
                         success = true;
                     }
@@ -102,7 +98,7 @@ namespace BLL
         /// <returns>hash with length 64</returns>
         private string ConvertHash(string hash)
         {
-            return hash.Length > 64 ? hash.Substring(2,64) : hash;
+            return hash.Length > 64 ? hash.Substring(2, 64) : hash;
         }
         /// <summary>
         /// Sync all block transactions.
@@ -110,7 +106,7 @@ namespace BLL
         /// <param name="block">block json</param>
         /// <param name="debug">success</param>
         /// <returns>tuple: success, sys_fee sum, net_fee sum</returns>
-        private Tuple<bool, Decimal, Decimal> SyncBlockTransactions(JToken block, bool debug)
+        private Tuple<bool, Decimal, Decimal> SyncBlockTransactions(JToken block, String Database, bool debug)
         {
             //Store Transaction, Input,Output, Claim, Script, Attribute in different tables
             //Need to pull apart data
@@ -120,7 +116,7 @@ namespace BLL
             bool success = true;
 
             //for every transaction do some processing
-            for (int j = 0; j<transactions.Count(); j++)
+            for (int j = 0; j < transactions.Count(); j++)
             {
                 var vout = transactions[j]["vout"];
 
@@ -177,7 +173,7 @@ namespace BLL
                 }
             }
             //store transactions in database
-            success = databaseLayer.StoreTransactionsDB(transactions, debug);
+            success = databaseLayer.StoreTransactionsDB(transactions, Database, debug);
             return Tuple.Create(success, sys_fee_total, net_fee_total);
         }
     }

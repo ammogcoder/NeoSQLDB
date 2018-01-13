@@ -1,14 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Timers;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using NAL;
 using BLL;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace NeoSQLDB
@@ -16,13 +11,21 @@ namespace NeoSQLDB
     class Program
     {
         /// <summary>
-        /// Timer for getting new blocks
+        /// Timer for getting new blocks on MainNet
         /// </summary>
-        private static System.Timers.Timer read = new System.Timers.Timer(TimeSpan.FromSeconds(15).TotalMilliseconds);
+        private static Timer ReadMainNetTimer = new Timer(TimeSpan.FromSeconds(15).TotalMilliseconds);
         /// <summary>
-        /// BlockingCollection qeueu for blocks that needs to be synced.
+        /// Timer for getting new blocks on TestNet
         /// </summary>
-        private static BlockingCollection<int> queue = new BlockingCollection<int>();
+        private static Timer ReadTestNetTimer = new Timer(TimeSpan.FromSeconds(5).TotalMilliseconds);
+        /// <summary>
+        /// BlockingCollection qeueu for blocks that needs to be synced MainNet.
+        /// </summary>
+        private static BlockingCollection<int> QueueMainNet = new BlockingCollection<int>();
+        /// <summary>
+        /// BlockingCollection qeueu for blocks that needs to be synced TestNet
+        /// </summary>
+        private static BlockingCollection<int> QueueTestNet = new BlockingCollection<int>();
         /// <summary>
         /// Application close variable
         /// </summary>
@@ -42,15 +45,25 @@ namespace NeoSQLDB
         /// <param name="args"></param>
         static void Main(string[] args)
         {
-            Console.ReadLine();
+            //Console.ReadLine();
+            if (Settings.Default.DBMainNet.Active)
+            {
+                //Create ElapsedEventHandler for reading new blocks MainNet
+                ReadMainNetTimer.AutoReset = false;
+                ReadMainNetTimer.Elapsed += new ElapsedEventHandler(ReadMainNet);
+                ReadMainNetTimer.Enabled = Settings.Default.DBMainNet.Active;
 
-            //Create ElapsedEventHandler for reading new blocks
-            read.AutoReset = false;
-            read.Elapsed += new ElapsedEventHandler(read_block);
-            read.Enabled = true;
+                var ConsumerMainNet = Task.Factory.StartNew(() => WriteMainNet());
+            }
+            if (Settings.Default.DBTestNet.Active)
+            {
+                //Create ElapsedEventHandler for reading new blocks MainNet
+                ReadTestNetTimer.AutoReset = false;
+                ReadTestNetTimer.Elapsed += new ElapsedEventHandler(ReadTestNet);
+                ReadTestNetTimer.Enabled = Settings.Default.DBTestNet.Active;
 
-            //Create task for syncing blocks
-            var consumerWorker = Task.Factory.StartNew(() => RunConsumer());
+                var ConsumerTestNet = Task.Factory.StartNew(() => WriteTestNet());
+            }
 
             Console.WriteLine("Press \'exit\' to quit.");
             string t;
@@ -65,57 +78,68 @@ namespace NeoSQLDB
             }
         }
         /// <summary>
-        /// Main method for getting new blocks from node
+        /// Main method for getting new blocks from node MainNet
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private static void read_block(object sender, ElapsedEventArgs e)
+        private static void ReadMainNet(object sender, ElapsedEventArgs e)
         {
             try
             {
                 //do only if all blocks are processed
-                if (queue.Count == 0)
+                if (QueueMainNet.Count == 0)
                 {
                     //Get max block from node
-                    JObject joe = nodeLayer.InvokeMethod("getblockcount", "");
-                    int toblock = int.Parse(joe["result"].ToString());
+                    JObject joe = null;
+                    while (joe == null)
+                    {
+                        foreach (var node in Settings.Default.NodesMainNet.Nodes)
+                        {
+                            joe = nodeLayer.InvokeMethod("getblockcount", node, "");
+                            if (joe != null)
+                            {
+                                break;
+                            }
+                        }
+                    }
 
+                    int toblock = int.Parse(joe["result"].ToString());
                     //Get max block from database
-                    int maxblock = businessLayer.GetMaxBlockDB();
+                    int maxblock = businessLayer.GetMaxBlockDB(Settings.Default.DBMainNet.Connection);
 
                     //Add all missing blocks to Queue
                     for (int i = maxblock + 1; i < toblock; i++)
                     {
                         try
                         {
-                            queue.TryAdd(i);
+                            QueueMainNet.TryAdd(i);
                         }
                         catch (InvalidOperationException)
                         {
-                            Console.WriteLine("InvalidOperationException");
+                            Console.WriteLine("MainNet InvalidOperationException");
                             break;
                         }
                     }
-                    Console.WriteLine("Looking for new blocks ...");
+                    Console.WriteLine("MainNet Looking for new blocks ...");
                 }
             }
             finally
             {
                 //Start timer again after adding all new blocks.
-                read.Start();
+                ReadMainNetTimer.Start();
             }
         }
         /// <summary>
-        /// Main method for adding new blocks to database
+        /// Main method for adding new blocks to database MainNet
         /// </summary>
-        private static void RunConsumer()
+        private static void WriteMainNet()
         {
             try
             {
                 try
                 {
                     // Runs automatically if a new block is added to the queue
-                    foreach (var t in queue.GetConsumingEnumerable())
+                    foreach (var t in QueueMainNet.GetConsumingEnumerable())
                     {
                         if (exit)
                         {
@@ -126,38 +150,158 @@ namespace NeoSQLDB
                         //get the new block
                         while (joe == null)
                         {
-                            joe = nodeLayer.InvokeMethod("getblock", t, 1);
+                            foreach (var node in Settings.Default.NodesMainNet.Nodes)
+                            {
+                                joe = nodeLayer.InvokeMethod("getblock", node, t, 1);
+                                if (joe != null)
+                                {
+                                    break;
+                                }
+                            }
                         }
                         //write block to database
-                        if (businessLayer.SyncBlock(joe, false))
+                        if (businessLayer.SyncBlock(joe, Settings.Default.DBMainNet.Connection, false))
                         {
-                            Console.WriteLine("Synced:{0} ", t);
-                            if ((t % 500) == 0)
+                            //Console.WriteLine("MainNet Synced:{0} ", t);
+                            if ((t % 200) == 0)
                             {
-                                Console.WriteLine("Synced:{0} ", t);
+                                Console.WriteLine("MainNet Synced:{0} ", t);
                             }
                         }
                         else
                         {
-                            Console.WriteLine("Error Syncing Block: {0}. Waiting for user ...", t);
+                            Console.WriteLine("MainNet Error Syncing Block: {0}. Waiting for user ...", t);
                             Console.ReadLine();
                         }
                     }
                 }
                 catch (InvalidOperationException)
                 {
-                    Console.WriteLine("InvalidOperationException");
+                    Console.WriteLine("MainNet InvalidOperationException");
                     Console.ReadLine();
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine(e.Message, e.StackTrace.ToString());
                 Console.ReadLine();
             }
             finally
             {
-                Console.WriteLine("Blocks in Queue={0}", queue.Count);
+                Console.WriteLine("MainNet Blocks in Queue={0}", QueueMainNet.Count);
+            }
+        }
+        /// <summary>
+        /// Main method for getting new blocks from node TestNet
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private static void ReadTestNet(object sender, ElapsedEventArgs e)
+        {
+            try
+            {
+                //do only if all blocks are processed
+                if (QueueTestNet.Count == 0)
+                {
+                    //Get max block from node
+                    JObject joe = null;
+                    while (joe == null)
+                    {
+                        foreach (var node in Settings.Default.NodesTestNet.Nodes)
+                        {
+                            joe = nodeLayer.InvokeMethod("getblockcount", node, "");
+                            if (joe != null)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    int toblock = int.Parse(joe["result"].ToString());
+                    //Get max block from database
+                    int maxblock = businessLayer.GetMaxBlockDB(Settings.Default.DBTestNet.Connection);
+
+                    //Add all missing blocks to Queue
+                    for (int i = maxblock + 1; i < toblock; i++)
+                    {
+                        try
+                        {
+                            QueueTestNet.TryAdd(i);
+                        }
+                        catch (InvalidOperationException)
+                        {
+                            Console.WriteLine("TestNet InvalidOperationException");
+                            break;
+                        }
+                    }
+                    Console.WriteLine("TestNet Looking for new blocks ...");
+                }
+            }
+            finally
+            {
+                //Start timer again after adding all new blocks.
+                ReadTestNetTimer.Start();
+            }
+        }
+        /// <summary>
+        /// Main method for adding new blocks to database MainNet
+        /// </summary>
+        private static void WriteTestNet()
+        {
+            try
+            {
+                try
+                {
+                    // Runs automatically if a new block is added to the queue
+                    foreach (var t in QueueTestNet.GetConsumingEnumerable())
+                    {
+                        if (exit)
+                        {
+                            Environment.Exit(0);
+                        }
+
+                        JObject joe = null;
+                        //get the new block
+                        while (joe == null)
+                        {
+                            foreach (var node in Settings.Default.NodesTestNet.Nodes)
+                            {
+                                joe = nodeLayer.InvokeMethod("getblock", node, t, 1);
+                                if (joe != null)
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                        //write block to database
+                        if (businessLayer.SyncBlock(joe, Settings.Default.DBTestNet.Connection, false))
+                        {
+                            Console.WriteLine("TestNet Synced:{0} ", t);
+                            if ((t % 200) == 0)
+                            {
+                                Console.WriteLine("TestNet Synced:{0} ", t);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("TestNet Error Syncing Block: {0}. Waiting for user ...", t);
+                            Console.ReadLine();
+                        }
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    Console.WriteLine("TestNet InvalidOperationException");
+                    Console.ReadLine();
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message, e.StackTrace.ToString());
+                Console.ReadLine();
+            }
+            finally
+            {
+                Console.WriteLine("TestNet Blocks in Queue={0}", QueueTestNet.Count);
             }
         }
     }

@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Data.SqlClient;
@@ -17,28 +13,30 @@ namespace DAL
         /// <param name="Transaction">one or more transactions json from one block</param>
         /// <param name="debug">if debug is true, the json string will be written to DebuggerTable</param>
         /// <returns>bool success</returns>
-        public bool StoreTransactionsDB(JToken Transaction, bool debug)
+        public bool StoreTransactionsDB(JToken Transaction, String Database, bool debug)
         {
             var sp = "StoreTransactions";
-            if(debug)
+            if (debug)
             {
                 sp = "InsertJsonTest";
             }
             var success = true;
             try
             {
-                using (SqlConnection con = new SqlConnection("Integrated Security=SSPI;Initial Catalog=NEO_MainNet;Data Source=.;"))
+                using (SqlConnection con = new SqlConnection(Database))
                 {
                     using (SqlCommand cmd = new SqlCommand(sp, con))
                     {
                         cmd.CommandType = System.Data.CommandType.StoredProcedure;
 
                         SqlParameter param;
-                        param = new SqlParameter();
-                        param.ParameterName = "@json";
-                        param.SqlDbType = System.Data.SqlDbType.NVarChar;
-                        param.Size = -1;
-                        param.Value = (object)JsonConvert.SerializeObject(Transaction);
+                        param = new SqlParameter
+                        {
+                            ParameterName = "@json",
+                            SqlDbType = System.Data.SqlDbType.NVarChar,
+                            Size = -1,
+                            Value = (object)JsonConvert.SerializeObject(Transaction)
+                        };
                         cmd.Parameters.Add(param);
 
                         SqlParameter returnParam = new SqlParameter(); ;
@@ -63,18 +61,18 @@ namespace DAL
         /// Get max block index currently stored in database
         /// </summary>
         /// <returns>int max block height</returns>
-        public int GetMaxBlockDB()
+        public int GetMaxBlockDB(string Database)
         {
             var maxblock = 0;
             try
             {
-                using (SqlConnection con = new SqlConnection("Integrated Security=SSPI;Initial Catalog=NEO_MainNet;Data Source=.;"))
+                using (SqlConnection con = new SqlConnection(Database))
                 {
                     using (SqlCommand cmd = new SqlCommand("select max([Index]) from Block", con))
                     {
                         con.Open();
                         var result = cmd.ExecuteScalar();
-                        if (result != null && int.TryParse(result.ToString(),out int n))
+                        if (result != null && int.TryParse(result.ToString(), out int n))
                         {
                             maxblock = int.Parse(result.ToString());
                         }
@@ -98,7 +96,7 @@ namespace DAL
         /// <param name="Block">block json</param>
         /// <param name="debug">if debug is true, the json string will be written to DebuggerTabl</param>
         /// <returns>bool success</returns>
-        public bool StoreBlock(JToken Block, bool debug)
+        public bool StoreBlock(JToken Block, String Database, bool debug)
         {
             string json = JsonConvert.SerializeObject(Block);
             var sp = "StoreBlock";
@@ -109,18 +107,20 @@ namespace DAL
             var success = true;
             try
             {
-                using (SqlConnection con = new SqlConnection("Integrated Security=SSPI;Initial Catalog=NEO_MainNet;Data Source=.;"))
+                using (SqlConnection con = new SqlConnection(Database))
                 {
                     using (SqlCommand cmd = new SqlCommand(sp, con))
                     {
                         cmd.CommandType = System.Data.CommandType.StoredProcedure;
 
                         SqlParameter param;
-                        param = new SqlParameter();
-                        param.ParameterName = "@json";
-                        param.SqlDbType = System.Data.SqlDbType.NVarChar;
-                        param.Size = -1;
-                        param.Value = (object)JsonConvert.SerializeObject(Block);
+                        param = new SqlParameter
+                        {
+                            ParameterName = "@json",
+                            SqlDbType = System.Data.SqlDbType.NVarChar,
+                            Size = -1,
+                            Value = (object)JsonConvert.SerializeObject(Block)
+                        };
                         cmd.Parameters.Add(param);
 
                         SqlParameter returnParam = new SqlParameter(); ;
