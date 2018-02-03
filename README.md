@@ -1,7 +1,9 @@
 # NEO SQL Server Blockchain Database
 NEO Blockchain Database based on Microsoft SQL Server.
 
-Fully functional with SQL Server 2016, Visual Studio 2017, SQL Server Data Tools (SSDT). Still in early phase, database not fully testet. Database and Node currently harcoded to localhost.
+Fully functional with SQL Server 2016, Visual Studio 2017, SQL Server Data Tools (SSDT). Still in early phase, database not fully testet. 
+
+Database synchronisation for MainNet and TestNet.
 
 ## Database Schema
 ### Blocks
