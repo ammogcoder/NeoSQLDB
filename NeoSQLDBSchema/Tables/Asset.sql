@@ -6,7 +6,9 @@
     [Amount] NUMERIC(20, 8) NOT NULL, 
     [Precision] INT NOT NULL, 
     [Owner] VARCHAR(34) NOT NULL, 
-    [Admin] VARCHAR(34) NOT NULL
+    [Admin] VARCHAR(34) NOT NULL, 
+    [Created] BIGINT NULL, 
+    [Symbol] VARCHAR(255) NULL
 )
 
 GO
@@ -18,3 +20,4 @@ EXEC sp_addextendedproperty @name = N'MS_Description',
     @level1name = N'Asset',
     @level2type = N'COLUMN',
     @level2name = N'Asset'
+GO

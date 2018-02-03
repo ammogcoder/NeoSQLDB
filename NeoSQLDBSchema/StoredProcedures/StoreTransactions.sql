@@ -209,7 +209,9 @@ BEGIN TRY
 				amount,
 				[precision],
 				[owner],
-				[admin]
+				[admin],
+				@time,
+				''
 			from #asset
 
 		--insert asset transaction/name into table

@@ -3,6 +3,7 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Net.Http;
+using System.Collections.Generic;
 
 namespace NAL
 {
@@ -11,7 +12,31 @@ namespace NAL
     /// </summary>
     public class NodeLayer
     {
-        public JObject InvokeMethod(string Method, string Node, params object[] Params)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="method"></param>
+        /// <param name="Params"></param>
+        /// <returns></returns>
+        public JObject Invoke(string method, List<string> nodes, params object[] Params)
+        {
+            JObject joe = null;
+            while (joe == null)
+            {
+                foreach (var node in nodes)
+                {
+                    joe = InvokeMethod(method, node, Params);
+                    if (joe != null)
+                    {
+                        break;
+                    }
+                }
+            }
+            return joe;
+        }
+
+        //TODO: method for getting best node from list (= node with highest block count)
+        private JObject InvokeMethod(string Method, string Node, params object[] Params)
         {
             try
             {
@@ -59,6 +84,10 @@ namespace NAL
                         {
                             return result;
                         }
+                        else if (result["error"]["message"].ToString() == "Unknown block")
+                        {
+                            return result;
+                        }
                         else
                         {
                             return null;
@@ -72,7 +101,7 @@ namespace NAL
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
 
                 return null;

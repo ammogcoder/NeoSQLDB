@@ -85,6 +85,11 @@
     <Build Include="StoredProcedures\StoreTransactions.sql" />
     <Build Include="Tables\BlockScript.sql" />
     <Build Include="Tables\DebuggerTable.sql" />
+    <Build Include="Tables\Contract.sql" />
+    <Build Include="Tables\ContractParameter.sql" />
+    <Build Include="Tables\NepTransfer.sql" />
+    <Build Include="StoredProcedures\StoreContractAsset.sql" />
+    <Build Include="StoredProcedures\StoreNEPTransfer.sql" />
   </ItemGroup>
   <ItemGroup>
     <RefactorLog Include="NeoSQLBrowserDB.refactorlog" />

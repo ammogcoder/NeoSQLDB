@@ -5,6 +5,11 @@ using System.Collections.Concurrent;
 using NAL;
 using BLL;
 using Newtonsoft.Json.Linq;
+using System.IO;
+using Newtonsoft.Json;
+using System.Linq;
+using System.Globalization;
+using System.Collections.Generic;
 
 namespace NeoSQLDB
 {
@@ -21,11 +26,13 @@ namespace NeoSQLDB
         /// <summary>
         /// BlockingCollection qeueu for blocks that needs to be synced MainNet.
         /// </summary>
-        private static BlockingCollection<int> QueueMainNet = new BlockingCollection<int>();
+        private static BlockingCollection<long> QueueMainNet = new BlockingCollection<long>();
+        private static BlockingCollection<long> QueueNEPMainNet = new BlockingCollection<long>();
         /// <summary>
         /// BlockingCollection qeueu for blocks that needs to be synced TestNet
         /// </summary>
-        private static BlockingCollection<int> QueueTestNet = new BlockingCollection<int>();
+        private static BlockingCollection<long> QueueTestNet = new BlockingCollection<long>();
+        private static BlockingCollection<long> QueueNEPTestNet = new BlockingCollection<long>();
         /// <summary>
         /// Application close variable
         /// </summary>
@@ -45,6 +52,12 @@ namespace NeoSQLDB
         /// <param name="args"></param>
         static void Main(string[] args)
         {
+            //List<string> localNode = new List<string>(new string[] { Settings.Default.NodesMainNet.Nodes.First().ToString() });
+            //JObject joe = nodeLayer.Invoke("getblocknotification", localNode, 1829894, 1);
+
+            //businessLayer.SyncNEP5(joe, Settings.Default.AddressVersion, Settings.Default.NodesMainNet.Nodes, 1829894, Settings.Default.DBMainNet.Connection, false);
+
+            Console.ReadLine();
             //Console.ReadLine();
             if (Settings.Default.DBMainNet.Active)
             {
@@ -54,6 +67,11 @@ namespace NeoSQLDB
                 ReadMainNetTimer.Enabled = Settings.Default.DBMainNet.Active;
 
                 var ConsumerMainNet = Task.Factory.StartNew(() => WriteMainNet());
+
+                if(Settings.Default.DBMainNet.NepSyncActive)
+                {
+                    var ConsumerNEPMainNet = Task.Factory.StartNew(() => WriteNEPMainNet());
+                }
             }
             if (Settings.Default.DBTestNet.Active)
             {
@@ -63,6 +81,10 @@ namespace NeoSQLDB
                 ReadTestNetTimer.Enabled = Settings.Default.DBTestNet.Active;
 
                 var ConsumerTestNet = Task.Factory.StartNew(() => WriteTestNet());
+                if (Settings.Default.DBTestNet.NepSyncActive)
+                {
+                    var ConsumerNEPTestnNet = Task.Factory.StartNew(() => WriteNEPTestNet());
+                }
             }
 
             Console.WriteLine("Press \'exit\' to quit.");
@@ -90,25 +112,14 @@ namespace NeoSQLDB
                 if (QueueMainNet.Count == 0)
                 {
                     //Get max block from node
-                    JObject joe = null;
-                    while (joe == null)
-                    {
-                        foreach (var node in Settings.Default.NodesMainNet.Nodes)
-                        {
-                            joe = nodeLayer.InvokeMethod("getblockcount", node, "");
-                            if (joe != null)
-                            {
-                                break;
-                            }
-                        }
-                    }
+                    JObject joe = nodeLayer.Invoke("getblockcount", Settings.Default.NodesMainNet.Nodes, "");
 
-                    int toblock = int.Parse(joe["result"].ToString());
+                    long toblock = long.Parse(joe["result"].ToString());
                     //Get max block from database
-                    int maxblock = businessLayer.GetMaxBlockDB(Settings.Default.DBMainNet.Connection);
+                    long maxblock = businessLayer.GetMaxBlockDB(Settings.Default.DBMainNet.Connection);
 
                     //Add all missing blocks to Queue
-                    for (int i = maxblock + 1; i < toblock; i++)
+                    for (long i = maxblock + 1; i < toblock; i++)
                     {
                         try
                         {
@@ -121,6 +132,31 @@ namespace NeoSQLDB
                         }
                     }
                     Console.WriteLine("MainNet Looking for new blocks ...");
+                }
+                if (Settings.Default.DBMainNet.NepSyncActive)
+                {
+                    //check nep queue
+                    if (QueueNEPMainNet.Count == 0)
+                    {
+                        //Get max block from node
+                        JObject joe = nodeLayer.Invoke("getblockcount", Settings.Default.NodesMainNet.Nodes, "");
+                        long toblock = businessLayer.GetMaxBlockDB(Settings.Default.DBMainNet.Connection);
+                        long maxblock = businessLayer.GetMaxBlockNEPDB(Settings.Default.DBMainNet.Connection);
+                        //Add all missing blocks to Queue
+                        for (long i = maxblock + 1; i < toblock; i++)
+                        {
+                            try
+                            {
+                                QueueNEPMainNet.TryAdd(i);
+                            }
+                            catch (InvalidOperationException)
+                            {
+                                Console.WriteLine("MainNet NEP InvalidOperationException");
+                                break;
+                            }
+                        }
+                        Console.WriteLine("MainNet NEP Looking for new blocks ...");
+                    }
                 }
             }
             finally
@@ -146,22 +182,27 @@ namespace NeoSQLDB
                             Environment.Exit(0);
                         }
 
-                        JObject joe = null;
+                        JObject joe = nodeLayer.Invoke("getblock", Settings.Default.NodesMainNet.Nodes, t, 1);
                         //get the new block
-                        while (joe == null)
+
+                        //write block to database
+                        if (businessLayer.SyncBlock(joe, Settings.Default.DBMainNet.Connection, Settings.Default.DBMainNet.Debug))
                         {
-                            foreach (var node in Settings.Default.NodesMainNet.Nodes)
+                            /*
+                            if(result.Item2)
                             {
-                                joe = nodeLayer.InvokeMethod("getblock", node, t, 1);
-                                if (joe != null)
+                                //sync nep5 todo or add to blockingqueee?
+                                try
                                 {
+                                    QueueNEPMainNet.TryAdd(t);
+                                }
+                                catch (InvalidOperationException)
+                                {
+                                    Console.WriteLine("MainNet NEP InvalidOperationException");
                                     break;
                                 }
                             }
-                        }
-                        //write block to database
-                        if (businessLayer.SyncBlock(joe, Settings.Default.DBMainNet.Connection, false))
-                        {
+                            */
                             //Console.WriteLine("MainNet Synced:{0} ", t);
                             if ((t % 200) == 0)
                             {
@@ -204,24 +245,14 @@ namespace NeoSQLDB
                 if (QueueTestNet.Count == 0)
                 {
                     //Get max block from node
-                    JObject joe = null;
-                    while (joe == null)
-                    {
-                        foreach (var node in Settings.Default.NodesTestNet.Nodes)
-                        {
-                            joe = nodeLayer.InvokeMethod("getblockcount", node, "");
-                            if (joe != null)
-                            {
-                                break;
-                            }
-                        }
-                    }
-                    int toblock = int.Parse(joe["result"].ToString());
+                    JObject joe = nodeLayer.Invoke("getblockcount", Settings.Default.NodesMainNet.Nodes, "");
+
+                    long toblock = long.Parse(joe["result"].ToString());
                     //Get max block from database
-                    int maxblock = businessLayer.GetMaxBlockDB(Settings.Default.DBTestNet.Connection);
+                    long maxblock = businessLayer.GetMaxBlockDB(Settings.Default.DBTestNet.Connection);
 
                     //Add all missing blocks to Queue
-                    for (int i = maxblock + 1; i < toblock; i++)
+                    for (long i = maxblock + 1; i < toblock; i++)
                     {
                         try
                         {
@@ -234,6 +265,31 @@ namespace NeoSQLDB
                         }
                     }
                     Console.WriteLine("TestNet Looking for new blocks ...");
+                }
+                if (Settings.Default.DBTestNet.NepSyncActive)
+                {
+                    //check nep queue
+                    if (QueueNEPTestNet.Count == 0)
+                    {
+                        //Get max block from node
+                        JObject joe = nodeLayer.Invoke("getblockcount", Settings.Default.NodesTestNet.Nodes, "");
+                        long toblock = businessLayer.GetMaxBlockDB(Settings.Default.DBTestNet.Connection);
+                        long maxblock = businessLayer.GetMaxBlockNEPDB(Settings.Default.DBTestNet.Connection);
+                        //Add all missing blocks to Queue
+                        for (long i = maxblock + 1; i < toblock; i++)
+                        {
+                            try
+                            {
+                                QueueNEPTestNet.TryAdd(i);
+                            }
+                            catch (InvalidOperationException)
+                            {
+                                Console.WriteLine("TestNet NEP InvalidOperationException");
+                                break;
+                            }
+                        }
+                        Console.WriteLine("TestNet NEP Looking for new blocks ...");
+                    }
                 }
             }
             finally
@@ -259,23 +315,26 @@ namespace NeoSQLDB
                             Environment.Exit(0);
                         }
 
-                        JObject joe = null;
+                        JObject joe = nodeLayer.Invoke("getblock", Settings.Default.NodesMainNet.Nodes,t, 1);
                         //get the new block
-                        while (joe == null)
+
+                        //write block to database
+                        if (businessLayer.SyncBlock(joe, Settings.Default.DBTestNet.Connection, Settings.Default.DBTestNet.Debug))
                         {
-                            foreach (var node in Settings.Default.NodesTestNet.Nodes)
+                            /*
+                            if(result.Item2)
                             {
-                                joe = nodeLayer.InvokeMethod("getblock", node, t, 1);
-                                if (joe != null)
+                                try
                                 {
+                                    QueueNEPTestNet.TryAdd(t);
+                                }
+                                catch (InvalidOperationException)
+                                {
+                                    Console.WriteLine("MainNet NEP InvalidOperationException");
                                     break;
                                 }
-                            }
-                        }
-                        //write block to database
-                        if (businessLayer.SyncBlock(joe, Settings.Default.DBTestNet.Connection, false))
-                        {
-                            Console.WriteLine("TestNet Synced:{0} ", t);
+                            }*/
+                            //Console.WriteLine("TestNet Synced:{0} ", t);
                             if ((t % 200) == 0)
                             {
                                 Console.WriteLine("TestNet Synced:{0} ", t);
@@ -302,6 +361,89 @@ namespace NeoSQLDB
             finally
             {
                 Console.WriteLine("TestNet Blocks in Queue={0}", QueueTestNet.Count);
+            }
+        }
+        private static void WriteNEPMainNet()
+        {
+            try
+            {
+                try
+                {
+                    // Runs automatically if a new block is added to the queue
+                    foreach (var t in QueueNEPMainNet.GetConsumingEnumerable())
+                    {
+                        JObject joe2 = nodeLayer.Invoke("getblocknotification", Settings.Default.NodesNEPMainNet.Nodes, t, 1);
+
+                        if (joe2["error"] == null)
+                        {
+                            if (businessLayer.SyncNEP5(joe2, Settings.Default.AddressVersion, Settings.Default.NodesNEPMainNet.Nodes, t, Settings.Default.DBMainNet.Connection, Settings.Default.DBMainNet.Debug))
+                            {
+                                if ((t % 200) == 0)
+                                {
+                                    Console.WriteLine("MainNet NEP Synced:{0} ", t);
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("FAILURE or no TRANSFER MainNet NEP Synced:{0} ", t);
+                            }
+                        }
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    Console.WriteLine("MainNet NEP InvalidOperationException");
+                    Console.ReadLine();
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message, e.StackTrace.ToString());
+                Console.ReadLine();
+            }
+            finally
+            {
+                Console.WriteLine("MainNet NEP Blocks in Queue={0}", QueueNEPMainNet.Count);
+            }
+        }
+        private static void WriteNEPTestNet()
+        {
+            try
+            {
+                try
+                {
+                    // Runs automatically if a new block is added to the queue
+                    foreach (var t in QueueNEPTestNet.GetConsumingEnumerable())
+                    {
+                        JObject joe2 = nodeLayer.Invoke("getblocknotification", Settings.Default.NodesNEPTestNet.Nodes, t, 1);
+
+                        if (businessLayer.SyncNEP5(joe2, Settings.Default.AddressVersion, Settings.Default.NodesNEPTestNet.Nodes, t, Settings.Default.DBTestNet.Connection, Settings.Default.DBTestNet.Debug))
+                        {
+                            if ((t % 200) == 0)
+                            {
+                                Console.WriteLine("TestNet NEP Synced:{0} ", t);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("FAILURE or no Transfer TestNet NEP Synced:{0} ", t);
+                        }
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    Console.WriteLine("TestNet NEP InvalidOperationException");
+                    Console.ReadLine();
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message, e.StackTrace.ToString());
+                Console.ReadLine();
+            }
+            finally
+            {
+                Console.WriteLine("TestNet NEP Blocks in Queue={0}", QueueNEPTestNet.Count);
             }
         }
     }

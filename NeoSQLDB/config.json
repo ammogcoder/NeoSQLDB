@@ -4,17 +4,24 @@
       "MainNet": {
         "Name": "NEO_MainNet",
         "Connection": "Integrated Security=SSPI;Initial Catalog=NEO_MainNet;Data Source=.;",
-        "Active": "true"
+        "Active": "true",
+        "NepSyncActive": "true",
+        "Debug":  "false"
       },
       "TestNet": {
         "Name": "NEO_TestNet",
         "Connection": "Integrated Security=SSPI;Initial Catalog=NEO_TestNet;Data Source=.;",
-        "Active": "true"
+        "Active": "false",
+        "NepSyncActive": "false",
+        "Debug": "false"
       }
     },
     "Nodes": {
       "MainNet": [ "http://127.0.0.1:10332", "http://seed1.cityofzion.io:8080", "http://seed2.cityofzion.io:8080", "http://seed1.neo.org:10332", "http://seed3.neo.org:10332" ],
-      "TestNet": [ "http://seed3.neo.org:20332", "http://seed4.neo.org:20332", "http://test2.cityofzion.io:8880", "http://test3.cityofzion.io:8880" ]
-    }
+      "TestNet": [ "http://127.0.0.1:20332", "http://seed3.neo.org:20332", "http://seed4.neo.org:20332", "http://test2.cityofzion.io:8880", "http://test3.cityofzion.io:8880" ],
+      "NEPMainNet": [ "http://127.0.0.1:10332"],
+      "NEPTestNet": [ "http://127.0.0.1:20332"]
+    },
+    "AddressVersion": 23
   }
 }

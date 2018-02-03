@@ -119,4 +119,32 @@
     <Property Name="ParentElementType" Value="SqlTable" />
     <Property Name="NewName" Value="TxId" />
   </Operation>
+  <Operation Name="Rename Refactor" Key="d1070f97-9d58-4cb3-bdca-257f1a4d8148" ChangeDateTime="01/26/2018 20:40:14">
+    <Property Name="ElementName" Value="[dbo].[Contract].[storage]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[Contract]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Storage" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="78cc483a-0681-4f3b-b03f-11f5ac9e8895" ChangeDateTime="01/31/2018 19:34:41">
+    <Property Name="ElementName" Value="[dbo].[NepTransfer].[Asset]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[NepTransfer]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Contract" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="556883d6-3d98-4354-93c4-894a41db37d6" ChangeDateTime="01/31/2018 19:36:35">
+    <Property Name="ElementName" Value="[dbo].[NepTransfer].[Block]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[NepTransfer]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="BlockId" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="26edd413-49b8-434c-bf19-8be28a5a2477" ChangeDateTime="01/31/2018 19:37:05">
+    <Property Name="ElementName" Value="[dbo].[NepTransfer].[Asset]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[NepTransfer]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="AssetSymbol" />
+  </Operation>
 </Operations>
