@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using NAL;
 using System.Text;
 using System.Numerics;
+using System.IO;
 
 namespace BLL
 {
@@ -64,7 +65,6 @@ namespace BLL
             {
                 var block = data["result"];
                 var success = true;
-
                 //first store block transaction
                 Tuple<bool, Decimal, Decimal> result = SyncBlockTransactions(block, Database, debug);
                 //if txs insertion successfull
@@ -104,6 +104,10 @@ namespace BLL
             }
             catch (Exception e)
             {
+                using (TextWriter errorWriter = Console.Error)
+                {
+                    errorWriter.WriteLine(e.Message);
+                }
                 return false;
             }
         }
@@ -267,6 +271,10 @@ namespace BLL
                 }
             catch (Exception e)
             {
+                using (TextWriter errorWriter = Console.Error)
+                {
+                    errorWriter.WriteLine(e.Message);
+                }
                 return false;
             }
         }

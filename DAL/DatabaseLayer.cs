@@ -3,6 +3,8 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Data.SqlClient;
 using System.Data;
+using System.IO;
+
 namespace DAL
 {
     public class DatabaseLayer
@@ -38,7 +40,7 @@ namespace DAL
                             Value = (object)JsonConvert.SerializeObject(Transaction)
                         };
                         cmd.Parameters.Add(param);
-
+                        cmd.CommandTimeout = 120;
                         SqlParameter returnParam = new SqlParameter(); ;
                         returnParam.ParameterName = "@success";
                         returnParam.SqlDbType = SqlDbType.Bit;
@@ -53,6 +55,10 @@ namespace DAL
             }
             catch (Exception e)
             {
+                using (TextWriter errorWriter = Console.Error)
+                {
+                    errorWriter.WriteLine(e.Message);
+                }
                 success = false;
             }
             return success;
@@ -80,8 +86,12 @@ namespace DAL
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                using (TextWriter errorWriter = Console.Error)
+                {
+                    errorWriter.WriteLine(e.Message);
+                }
                 return 0;
             }
             return maxblock;
@@ -113,8 +123,12 @@ namespace DAL
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                using (TextWriter errorWriter = Console.Error)
+                {
+                    errorWriter.WriteLine(e.Message);
+                }
                 return 0;
             }
             return maxblock;
@@ -160,8 +174,12 @@ namespace DAL
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                using (TextWriter errorWriter = Console.Error)
+                {
+                    errorWriter.WriteLine(e.Message);
+                }
                 return precision;
             }
             return precision;
@@ -196,8 +214,12 @@ namespace DAL
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                using (TextWriter errorWriter = Console.Error)
+                {
+                    errorWriter.WriteLine(e.Message);
+                }
                 return false;
             }
             return success;
@@ -286,15 +308,19 @@ namespace DAL
                         returnParam.SqlDbType = SqlDbType.Bit;
                         returnParam.Direction = ParameterDirection.Output;
                         cmd.Parameters.Add(returnParam);
-
+                        cmd.CommandTimeout = 120;
                         con.Open();
                         cmd.ExecuteNonQuery();
                         success = (bool)cmd.Parameters["@success"].Value;
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                using (TextWriter errorWriter = Console.Error)
+                {
+                    errorWriter.WriteLine(e.Message);
+                }
                 success = false;
             }
             return success;

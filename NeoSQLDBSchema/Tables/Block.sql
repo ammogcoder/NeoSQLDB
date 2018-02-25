@@ -136,7 +136,7 @@ EXEC sp_addextendedproperty @name = N'MS_Description',
 GO
 
 
-CREATE INDEX [IX_Block_Id] ON [dbo].[Block] ([Id])
+CREATE UNIQUE INDEX [IX_Block_Id] ON [dbo].[Block] ([Id])
 
 GO
 
@@ -150,4 +150,4 @@ EXEC sp_addextendedproperty @name = N'MS_Description',
     @level2name = N'Net_Fee'
 GO
 
-CREATE INDEX [IX_Block_Hash] ON [dbo].[Block] ([Hash])
+CREATE UNIQUE INDEX [IX_Block_Hash] ON [dbo].[Block] ([Hash])

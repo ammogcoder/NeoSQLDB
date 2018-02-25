@@ -123,7 +123,7 @@ BEGIN TRY
 	from	
 		#contract
 	return @success;
-
+	SET NOCOUNT OFF;
 END TRY
 BEGIN CATCH
 	select @success = 0;
@@ -134,5 +134,6 @@ BEGIN CATCH
 	 ,0 'Txid_pk',
 	 @json 'json';
 	 return @success;
+	 SET NOCOUNT OFF;
 END CATCH
 RETURN 0

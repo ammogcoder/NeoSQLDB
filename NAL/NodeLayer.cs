@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Net.Http;
 using System.Collections.Generic;
+using System.IO;
 
 namespace NAL
 {
@@ -103,7 +104,10 @@ namespace NAL
             }
             catch (Exception e)
             {
-
+                using (TextWriter errorWriter = Console.Error)
+                {
+                    errorWriter.WriteLine(e.Message);
+                }
                 return null;
             }
         }

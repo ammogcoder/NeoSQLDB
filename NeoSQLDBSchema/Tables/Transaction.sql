@@ -136,7 +136,7 @@ EXEC sp_addextendedproperty @name = N'MS_Description',
     @level2name = 'TypeId'
 GO
 
-CREATE INDEX [IX_Transaction_TxId] ON [dbo].[Transaction] ([TxId])
+CREATE UNIQUE INDEX [IX_Transaction_TxId] ON [dbo].[Transaction] ([TxId])
 
 GO
 EXEC sp_addextendedproperty @name = N'MS_Description',
